@@ -74,6 +74,7 @@ def train(config:ExperimentConfig) -> Result:
     times.append(get_time()) # モデルをロード(GPU 使用時には GPU メモリへの移動も込み)する時間を計測
 
     model = CLS_Model(output_dim=4).to(config.device)
+    model = torch.compile(model)
 
     times.append(get_time()) # データのロードからデータローダーの作成までの時間を計測
 
@@ -104,15 +105,20 @@ def train(config:ExperimentConfig) -> Result:
     )
 
     # DataLoader の作成(num_workersは取り敢えず0)
-    if isinstance(dataset, Dataset):
-        dataloader = DataLoader(
-            dataset,
-            batch_size=config.batch_size,
-            shuffle=False,
-        )
-    else:
-        raise Exception(f'type(dataset) need to be Dataset, but {type(dataset)}')
+    # if isinstance(dataset, Dataset):
+    #     dataloader = DataLoader(
+    #         dataset,
+    #         batch_size=config.batch_size,
+    #         shuffle=False,
+    #     )
+    # else:
+    #     raise Exception(f'type(dataset) need to be Dataset, but {type(dataset)}')
 
+    dataloader = DataLoader(
+        dataset,
+        batch_size=config.batch_size,
+        shuffle=False,
+    )
     times.append(get_time()) # 学習にかかる時間を計測
 
     optimizer = Adam(model.parameters(), lr=1e-5)

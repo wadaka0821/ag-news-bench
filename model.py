@@ -1,6 +1,6 @@
 import torch
 from torch.nn import Linear
-from transformers.utils.dummy_pt_objects import BertModel
+from transformers import BertModel
 
 class CLS_Model(torch.nn.Module):
     """
