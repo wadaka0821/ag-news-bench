@@ -1,10 +1,12 @@
 import random
 import argparse
 import time
+import os
 
 import numpy as np
 from numpy.typing import NDArray
 import torch
+import torch._dynamo
 from torch.backends import cudnn
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
@@ -69,13 +71,18 @@ def train(config:ExperimentConfig) -> Result:
 
     times.append(get_time()) # トークナイザをロードする時間を計測
 
+    os.environ["TOKENIZERS_PARALLELISM"] = "false"
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
 
     times.append(get_time()) # モデルをロード(GPU 使用時には GPU メモリへの移動も込み)する時間を計測
 
+    torch.set_float32_matmul_precision('high')
+    torch._dynamo.reset()
     model = CLS_Model(output_dim=4).to(config.device)
-    model = torch.compile(model)
-
+    model = torch.compile(
+        model,
+        mode="reduce-overhead"
+    )
     times.append(get_time()) # データのロードからデータローダーの作成までの時間を計測
 
     # AG-News の学習データの内，10000件を使用
@@ -87,9 +94,10 @@ def train(config:ExperimentConfig) -> Result:
     dataset = dataset.map(
         lambda x: tokenizer(
             x['text'], 
-            max_length=512, 
+            max_length=30, 
             padding=True, 
-            truncation=True
+            truncation=True,
+            return_tensors='pt'
         ), 
         batched=True,
         load_from_cache_file=False, # type: ignore
@@ -231,5 +239,6 @@ experiment
 """
 if __name__ == '__main__':
     exp_config, base_dir = load_arguments()
+    fix_seed(exp_config.seed)
     save_config(exp_config, base_dir)
     main(exp_config, base_dir)
